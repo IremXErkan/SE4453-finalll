@@ -1,0 +1,61 @@
+name: Build and Deploy Container to Azure (ACR)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  RG: rg-final-project
+  WEBAPP_NAME: final-app
+  ACR_LOGIN_SERVER: finalacr96.azurecr.io
+  IMAGE_NAME: final-app
+  IMAGE_TAG: latest
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login finalacr96.azurecr.io \
+            -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t finalacr96.azurecr.io/final-app:latest .
+
+      - name: Push Docker image to ACR
+        run: |
+          docker push finalacr96.azurecr.io/final-app:latest
+
+      - name: Configure Azure Web App to use ACR image
+        run: |
+          az webapp config container set \
+            --resource-group rg-final-project \
+            --name final-app \
+            --container-image-name finalacr96.azurecr.io/final-app:latest \
+            --container-registry-url https://finalacr96.azurecr.io
+
+      - name: Set ACR credentials on Web App
+        run: |
+          az webapp config appsettings set \
+            --resource-group rg-final-project \
+            --name final-app \
+            --settings \
+              DOCKER_REGISTRY_SERVER_URL=https://finalacr96.azurecr.io \
+              DOCKER_REGISTRY_SERVER_USERNAME=${{ secrets.REGISTRY_USERNAME }} \
+              DOCKER_REGISTRY_SERVER_PASSWORD=${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Restart Azure Web App
+        run: |
+          az webapp restart -g rg-final-project -n final-app
