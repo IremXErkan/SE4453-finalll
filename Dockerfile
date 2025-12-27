@@ -1,27 +1,36 @@
-FROM nginx:latest
+FROM python:3.11-slim
 
-# SSH server kur
+# SSH için gerekli paketler
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# SSH için klasör
+# SSH runtime klasörü
 RUN mkdir -p /var/run/sshd
 
-# Root şifresi (demo için; istersen değiştir)
+# Root şifresi (demo)
 RUN echo 'root:Docker123!' | chpasswd
 
-# Root login + password auth aç (isteğe göre)
+# Root login + password auth aç
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
  && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# init script kopyala
-COPY init.sh /init.sh
+WORKDIR /app
 
-# Windows'ta chmod çalışmadığı için burada veriyoruz
+# Python bağımlılıkları
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kodları kopyala
+COPY . .
+
+# init script
+COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
-# App Service için: web + ssh portları
-EXPOSE 80 2222
+# App Service: web 8080, SSH 2222 (init.sh bunu ayarlıyor)
+EXPOSE 8080 2222
+ENV PORT=8080
 
-CMD ["/init.sh"]
+# init.sh SSH'i açar, sonra gunicorn'u çalıştırır
+CMD ["/init.sh", "gunicorn", "--bind", "0.0.0.0:8080", "main:app"]

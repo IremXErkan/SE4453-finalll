@@ -1,12 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-# App Service custom container'da SSH genelde 2222'den dinlenir
-sed -i 's/^#Port 22/Port 2222/' /etc/ssh/sshd_config || true
-grep -q "^Port 2222" /etc/ssh/sshd_config || echo "Port 2222" >> /etc/ssh/sshd_config
+# SSH portunu 2222 yap
+if grep -q "^#Port 22" /etc/ssh/sshd_config; then
+  sed -i 's/^#Port 22/Port 2222/' /etc/ssh/sshd_config
+fi
+if ! grep -q "^Port 2222" /etc/ssh/sshd_config; then
+  echo "Port 2222" >> /etc/ssh/sshd_config
+fi
+
+mkdir -p /var/run/sshd
 
 # SSH başlat
-service ssh start
+/usr/sbin/sshd
 
-# Nginx'i foreground'da çalıştır (container ayakta kalsın)
-nginx -g "daemon off;"
+# Web (gunicorn) başlat
+exec "$@"
