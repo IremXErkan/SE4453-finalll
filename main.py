@@ -13,7 +13,7 @@ CACHE_SECONDS = 300  # 5 dk
 
 
 def _kv_client() -> SecretClient:
-    kv_url = os.environ["KEYVAULT_URL"]  # https://kv-final.vault.azure.net/
+    kv_url = os.environ["KEYVAULT_URL"]  # örn: https://kv-final.vault.azure.net/
     cred = DefaultAzureCredential()
     return SecretClient(vault_url=kv_url, credential=cred)
 
@@ -83,3 +83,9 @@ def db():
         return jsonify(db_ping())
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    # Azure App Service container, uygulamanın PORT env değişkeninden okumasını bekler.
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
