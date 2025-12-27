@@ -1,11 +1,10 @@
 FROM python:3.11-slim
 
-# SSH için gerekli paketler
+# SSH için
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     && rm -rf /var/lib/apt/lists/*
 
-# SSH runtime klasörü
 RUN mkdir -p /var/run/sshd
 
 # Root şifresi (demo)
@@ -28,9 +27,9 @@ COPY . .
 COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
-# App Service: web 8080, SSH 2222 (init.sh bunu ayarlıyor)
-EXPOSE 8080 2222
+# App Service: web 8080, ssh 22
+EXPOSE 8080 22
 ENV PORT=8080
 
-# init.sh SSH'i açar, sonra gunicorn'u çalıştırır
+# init.sh önce ssh açacak, sonra web'i başlatacak
 CMD ["/init.sh", "gunicorn", "--bind", "0.0.0.0:8080", "main:app"]
