@@ -27,9 +27,9 @@ COPY . .
 COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
-# App Service: web 8080, ssh 22
-EXPOSE 8080 22
+# Web + SSH portları
+EXPOSE 8080 2222
 ENV PORT=8080
 
-# init.sh önce ssh açacak, sonra web'i başlatacak
+# SSH + Flask(Gunicorn)
 CMD ["/init.sh", "gunicorn", "--bind", "0.0.0.0:8080", "main:app"]
