@@ -9,11 +9,8 @@ if ! grep -q "^Port 2222" /etc/ssh/sshd_config; then
   echo "Port 2222" >> /etc/ssh/sshd_config
 fi
 
-# SSH için gerekli klasör
 mkdir -p /var/run/sshd
-
-# SSH başlat
 /usr/sbin/sshd
 
-# Web (gunicorn) başlat
+# Web (gunicorn)
 exec "$@"
