@@ -8,18 +8,19 @@ from azure.keyvault.secrets import SecretClient
 
 app = Flask(__name__)
 
-# Basit cache (Key Vault’a her requestte gitmemek için)
 _cached = {"ts": 0, "data": None}
-CACHE_SECONDS = 300  # 5 dk
+CACHE_SECONDS = 300  
 
 
 def _kv_client() -> SecretClient:
-    kv_url = os.environ["KEYVAULT_URL"]  # örn: https://kv-final.vault.azure.net/
+    kv_url = os.environ["KEYVAULT_URL"]  
     cred = DefaultAzureCredential()
     return SecretClient(vault_url=kv_url, credential=cred)
 
 
 def _get_secret(client: SecretClient, name: str) -> str:
+    if not name:
+        raise ValueError("Secret name is empty/None. Check App Service env variables.")
     return client.get_secret(name).value
 
 
@@ -30,10 +31,11 @@ def get_db_config() -> dict:
 
     client = _kv_client()
 
+    
     host_secret = os.getenv("DB_HOST_SECRET", "DbHostPrivate")
-    user_secret = os.environ["DB_USER_SECRET"]
-    pass_secret = os.environ["DB_PASSWORD_SECRET"]
-    name_secret = os.environ["DB_NAME_SECRET"]
+    user_secret = os.getenv("DB_USER_SECRET", "DbUser")
+    pass_secret = os.getenv("DB_PASSWORD_SECRET", "DbPassword")
+    name_secret = os.getenv("DB_NAME_SECRET", "DbName")
 
     cfg = {
         "host": _get_secret(client, host_secret),
@@ -50,7 +52,6 @@ def get_db_config() -> dict:
 
 def db_ping() -> dict:
     cfg = get_db_config()
-
     conn = psycopg2.connect(
         host=cfg["host"],
         user=cfg["user"],
@@ -58,14 +59,13 @@ def db_ping() -> dict:
         dbname=cfg["dbname"],
         port=cfg["port"],
         connect_timeout=5,
-        sslmode=os.getenv("DB_SSLMODE", "disable"),  # VM üzerindeki postgres için genelde disable
+        sslmode=os.getenv("DB_SSLMODE", "disable"),
     )
     cur = conn.cursor()
     cur.execute("SELECT 1;")
     row = cur.fetchone()
     cur.close()
     conn.close()
-
     return {"ok": True, "select_1": row[0], "db_host": cfg["host"]}
 
 
@@ -88,6 +88,5 @@ def db():
 
 
 if __name__ == "__main__":
-    # Lokal çalıştırma için (App Service'de gunicorn kullanıyorsun)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
