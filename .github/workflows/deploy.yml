@@ -10,7 +10,6 @@ env:
   WEBAPP_NAME: final-app
   ACR_LOGIN_SERVER: finalacr96.azurecr.io
   IMAGE_NAME: final-app
-  IMAGE_TAG: latest
 
 jobs:
   build-and-deploy:
@@ -30,27 +29,27 @@ jobs:
           echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login finalacr96.azurecr.io \
             -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
 
-      - name: Build Docker image
+      - name: Build Docker image (tag with SHA)
         run: |
-          docker build -t finalacr96.azurecr.io/final-app:latest -f Dockerfile .
+          docker build -t finalacr96.azurecr.io/final-app:${{ github.sha }} -f Dockerfile .
 
       - name: Push Docker image to ACR
         run: |
-          docker push finalacr96.azurecr.io/final-app:latest
+          docker push finalacr96.azurecr.io/final-app:${{ github.sha }}
 
-      - name: Configure Azure Web App to use ACR image
+      - name: Configure Azure Web App to use ACR image (use SHA tag)
         run: |
           az webapp config container set \
-            --resource-group rg-final-project \
-            --name final-app \
-            --container-image-name finalacr96.azurecr.io/final-app:latest \
-            --container-registry-url https://finalacr96.azurecr.io
+            --resource-group ${{ env.RG }} \
+            --name ${{ env.WEBAPP_NAME }} \
+            --docker-custom-image-name finalacr96.azurecr.io/final-app:${{ github.sha }} \
+            --docker-registry-server-url https://finalacr96.azurecr.io
 
       - name: Set ACR credentials on Web App
         run: |
           az webapp config appsettings set \
-            --resource-group rg-final-project \
-            --name final-app \
+            --resource-group ${{ env.RG }} \
+            --name ${{ env.WEBAPP_NAME }} \
             --settings \
               DOCKER_REGISTRY_SERVER_URL=https://finalacr96.azurecr.io \
               DOCKER_REGISTRY_SERVER_USERNAME=${{ secrets.REGISTRY_USERNAME }} \
@@ -58,4 +57,4 @@ jobs:
 
       - name: Restart Azure Web App
         run: |
-          az webapp restart -g rg-final-project -n final-app
+          az webapp restart --resource-group ${{ env.RG }} --name ${{ env.WEBAPP_NAME }}
