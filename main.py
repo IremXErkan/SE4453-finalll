@@ -30,12 +30,11 @@ def get_db_config() -> dict:
 
     client = _kv_client()
 
-    # Secret isimleri (env’de override edilebilir)
-    host_secret = os.getenv("DB_HOST_SECRET", "DbHostPrivate")
-    user_secret = os.getenv("DB_USER_SECRET", "DbUser")
-    pass_secret = os.getenv("DB_PASSWORD_SECRET", "DbPassword")
-    name_secret = os.getenv("DB_NAME_SECRET", "DbName")
-
+    host_secret = os.environ["DB_HOST_SECRET"]
+    user_secret = os.environ["DB_USER_SECRET"]
+    pass_secret = os.environ["DB_PASSWORD_SECRET"]
+    name_secret = os.environ["DB_NAME_SECRET"]
+    
     cfg = {
         "host": _get_secret(client, host_secret),
         "user": _get_secret(client, user_secret),
