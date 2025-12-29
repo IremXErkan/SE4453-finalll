@@ -14,7 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /var/run/sshd
 
 # (Opsiyonel) root şifreyi env ile ayarla. Env verilmezse demo bir değer kullanır.
-# NOT: Prod için önerilmez ama guideline istiyor diye minimumda tutuyoruz.
 ENV SSH_PASSWORD="Docker123!"
 
 # SSH config: root login + password auth açık
@@ -31,6 +30,9 @@ RUN chmod +x /init.sh
 
 # Web + SSH portları
 EXPOSE 8080 2222
+
+# Azure App Service PORT'u genelde 8080'e set eder (zaten logda override ediyor)
 ENV PORT=8080
 
+# init.sh hem sshd'yi açacak hem gunicorn'u PORT'ta başlatacak
 CMD ["/init.sh"]
