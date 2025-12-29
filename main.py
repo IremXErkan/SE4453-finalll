@@ -8,18 +8,21 @@ from azure.keyvault.secrets import SecretClient
 
 app = Flask(__name__)
 
-# Basit cache (Key Vault’a her requestte gitmemek için)
 _cached = {"ts": 0, "data": None}
 CACHE_SECONDS = 300  # 5 dk
 
 
 def _kv_client() -> SecretClient:
-    kv_url = os.environ["KEYVAULT_URL"]  # örn: https://kv-final.vault.azure.net/
+    kv_url = os.getenv("KEYVAULT_URL")
+    if not kv_url:
+        raise RuntimeError("KEYVAULT_URL env not set (App Service Configuration -> Application settings).")
     cred = DefaultAzureCredential()
     return SecretClient(vault_url=kv_url, credential=cred)
 
 
 def _get_secret(client: SecretClient, name: str) -> str:
+    if not name or not isinstance(name, str):
+        raise RuntimeError(f"Secret name invalid: {name!r}. Check DB_*_SECRET env values.")
     return client.get_secret(name).value
 
 
@@ -30,7 +33,8 @@ def get_db_config() -> dict:
 
     client = _kv_client()
 
-    # Secret isimleri (env’de override edilebilir)
+    # Secret isimleri: ENV ile override edilebilir
+    # Senin host secret ismi DbHostPrivate ise default'u ona çektim.
     host_secret = os.getenv("DB_HOST_SECRET", "DbHostPrivate")
     user_secret = os.getenv("DB_USER_SECRET", "DbUser")
     pass_secret = os.getenv("DB_PASSWORD_SECRET", "DbPassword")
@@ -42,6 +46,7 @@ def get_db_config() -> dict:
         "password": _get_secret(client, pass_secret),
         "dbname": _get_secret(client, name_secret),
         "port": int(os.getenv("DB_PORT", "5432")),
+        "sslmode": os.getenv("DB_SSLMODE", "disable"),
     }
 
     _cached["ts"] = now
@@ -51,22 +56,20 @@ def get_db_config() -> dict:
 
 def db_ping() -> dict:
     cfg = get_db_config()
-
     conn = psycopg2.connect(
         host=cfg["host"],
         user=cfg["user"],
         password=cfg["password"],
         dbname=cfg["dbname"],
         port=cfg["port"],
-        connect_timeout=5,
-        sslmode=os.getenv("DB_SSLMODE", "disable"),  # VM üzerindeki postgres için genelde disable
+        connect_timeout=10,
+        sslmode=cfg["sslmode"],
     )
     cur = conn.cursor()
     cur.execute("SELECT 1;")
     row = cur.fetchone()
     cur.close()
     conn.close()
-
     return {"ok": True, "select_1": row[0], "db_host": cfg["host"]}
 
 
@@ -85,10 +88,11 @@ def db():
     try:
         return jsonify(db_ping())
     except Exception as e:
+        # App Service loglarında da görünür
+        print(f"/db error: {e}", flush=True)
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    # Lokal çalıştırma için (App Service'de gunicorn kullanıyorsun)
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", "8080"))
     app.run(host="0.0.0.0", port=port)
