@@ -30,11 +30,11 @@ def get_db_config() -> dict:
 
     client = _kv_client()
 
-    host_secret = os.environ["DB_HOST_SECRET"]
+    host_secret = os.environ["DB_HOST_SECRET","DbHostPrivate"]
     user_secret = os.environ["DB_USER_SECRET"]
     pass_secret = os.environ["DB_PASSWORD_SECRET"]
     name_secret = os.environ["DB_NAME_SECRET"]
-    
+
     cfg = {
         "host": _get_secret(client, host_secret),
         "user": _get_secret(client, user_secret),
