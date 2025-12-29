@@ -5,17 +5,18 @@ import psycopg2
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
+# Flask app
 app = Flask(__name__)
 
-# Basit cache (Key Vault’a her requestte gitmemek için)
+# Basit cache (Key Vault'a her requestte gitmemek için)
 _cached = {"ts": 0, "data": None}
 CACHE_SECONDS = 300  # 5 dk
 
 
 def _kv_client() -> SecretClient:
     kv_url = os.environ["KEYVAULT_URL"]  # örn: https://kv-final.vault.azure.net/
-    cred = DefaultAzureCredential()
-    return SecretClient(vault_url=kv_url, credential=cred)
+    credential = DefaultAzureCredential()
+    return SecretClient(vault_url=kv_url, credential=credential)
 
 
 def _get_secret(client: SecretClient, name: str) -> str:
@@ -29,7 +30,7 @@ def get_db_config() -> dict:
 
     client = _kv_client()
 
-    # Secret isimleri (env’de override edilebilir)
+    # Secret isimleri (env ile override edilebilir)
     host_secret = os.getenv("DB_HOST_SECRET", "DbHost")
     user_secret = os.getenv("DB_USER_SECRET", "DbUser")
     pass_secret = os.getenv("DB_PASSWORD_SECRET", "DbPassword")
@@ -57,35 +58,46 @@ def db_ping() -> dict:
         dbname=cfg["dbname"],
         port=cfg["port"],
         connect_timeout=5,
-        sslmode="disable",  # VM üzerindeki postgres için genelde disable
+        sslmode="disable",  # VM üzerindeki PostgreSQL için genelde disable
     )
     cur = conn.cursor()
     cur.execute("SELECT 1;")
     row = cur.fetchone()
     cur.close()
     conn.close()
-    return {"ok": True, "select_1": row[0], "db_host": cfg["host"]}
+
+    return {
+        "ok": True,
+        "select_1": row[0],
+        "db_host": cfg["host"]
+    }
 
 
-@app.get("/")
+# ---------- ROUTES ----------
+
+@app.route("/", methods=["GET"])
 def root():
-    return jsonify({"service": "final-project-api", "status": "running"})
+    return jsonify({
+        "service": "final-project-api",
+        "status": "running"
+    })
 
 
-@app.get("/health")
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({"ok": True})
 
 
-@app.get("/db")
+@app.route("/db", methods=["GET"])
 def db():
     try:
         return jsonify(db_ping())
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
 
 if __name__ == "__main__":
-    # Azure App Service container, uygulamanın PORT env değişkeninden okumasını bekler.
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
